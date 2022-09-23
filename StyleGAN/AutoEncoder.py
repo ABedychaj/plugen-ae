@@ -27,4 +27,4 @@ class AE_single_layer(nn.Module):
         activation = torch.relu(activation)
         activation = self.decoder_output_layer(activation)
         reconstructed = torch.relu(activation)
-        return reconstructed
+        return reconstructed, code

@@ -1,3 +1,5 @@
+import torch
+
 from .odefunc import ODEfunc, ODEnet
 from .normalization import MovingBatchNorm1d
 from .cnf import CNF, SequentialFlow
@@ -37,7 +39,7 @@ def count_total_time(model):
     return accumulator.total_time
 
 
-def build_model( input_dim, hidden_dims, context_dim, num_blocks, conditional):
+def build_model(input_dim, hidden_dims, context_dim, num_blocks, conditional):
     def build_cnf():
         diffeq = ODEnet(
             hidden_dims=hidden_dims,
@@ -63,21 +65,20 @@ def build_model( input_dim, hidden_dims, context_dim, num_blocks, conditional):
 
     chain = [build_cnf() for _ in range(num_blocks)]
     bn_layers = [MovingBatchNorm1d(input_dim, bn_lag=0, sync=False)
-                     for _ in range(num_blocks)]
+                 for _ in range(num_blocks)]
     bn_chain = [MovingBatchNorm1d(input_dim, bn_lag=0, sync=False)]
     for a, b in zip(chain, bn_layers):
-            bn_chain.append(a)
-            bn_chain.append(b)
+        bn_chain.append(a)
+        bn_chain.append(b)
     chain = bn_chain
     model = SequentialFlow(chain)
 
     return model
 
 
-def cnf(input_dim,dims,zdim,num_blocks):
+def cnf(input_dim, dims, zdim, num_blocks):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     dims = tuple(map(int, dims.split("-")))
-    model = build_model(input_dim, dims, zdim, num_blocks, True).cuda()
+    model = build_model(input_dim, dims, zdim, num_blocks, True).to(device=device)
     print("Number of trainable parameters of Point CNF: {}".format(count_parameters(model)))
     return model
-
-
