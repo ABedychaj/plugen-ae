@@ -45,7 +45,7 @@ else:
     values = [int(args.values[i]) for i in range(len(args.values))]
     all_w, all_a = load_dataset(values=[0] * 9 + values)
 
-model_dir = f"feat{features}_values{args.values}_decay{decay}_sigma{sigma}"
+model_dir = f"nice_feat{features}_values{args.values}_decay{decay}_sigma{sigma}"
 
 model_dir = f"saved/{model_dir}"
 
