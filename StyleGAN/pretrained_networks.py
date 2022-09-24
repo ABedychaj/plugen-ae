@@ -87,3 +87,6 @@ def load_networks(path_or_gdrive_path):
 
 
 # ----------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    load_networks('gdrive:networks/stylegan2-ffhq-config-f.pkl')
