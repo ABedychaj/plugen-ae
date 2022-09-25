@@ -3,12 +3,15 @@ import numpy as np
 import torch
 import torchvision.transforms as transforms
 import torchvision.utils as vutils
-import tensorflow as tf
+
 import matplotlib.pyplot as plt
 from pretrained_networks import load_networks
 from module.flow import cnf
 from NICE import NiceFlow
-from utils import iterate_batches, load_dataset, make_dir, save_img
+from utils import iterate_batches, load_dataset, make_dir
+
+import dnnlib
+import dnnlib.tflib as tflib
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--styleflow", action="store_true")
@@ -58,9 +61,6 @@ else:
 
 make_dir(output_dir)
 prior.eval()
-
-import dnnlib
-import dnnlib.tflib as tflib
 
 network_pkl = "gdrive:networks/stylegan2-ffhq-config-f.pkl"
 _, _, Gs = load_networks(network_pkl)
