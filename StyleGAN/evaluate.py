@@ -63,7 +63,7 @@ make_dir(output_dir)
 prior.eval()
 
 network_pkl = "gdrive:networks/stylegan2-ffhq-config-f.pkl"
-_, _, Gs = load_networks(network_pkl)
+G, D, Gs = load_networks(network_pkl)
 Gs_syn_kwargs = dnnlib.EasyDict()
 Gs_syn_kwargs.output_transform = dict(
     func=tflib.convert_images_to_uint8, nchw_to_nhwc=True
