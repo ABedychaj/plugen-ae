@@ -97,11 +97,11 @@ end_epoch = 100
 batch_size = 32
 
 for epoch in range(start_epoch, end_epoch):
-    all_w = shuffle(all_w)
+    all_w_tmp = shuffle(all_w)
     model.train()
     running_loss = 0.0
     count_batches = 0
-    for w in iterate_batches(all_w, batch_size):
+    for w in iterate_batches(all_w_tmp, batch_size):
         w = w.to(device)
         optimizer.zero_grad()
 
