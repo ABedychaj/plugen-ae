@@ -8,8 +8,10 @@ from datetime import datetime
 import torch
 import torch.optim as optim
 
-from AutoEncoder import AE_single_layer
-from utils import load_dataset, save_model
+from AutoEncoder import AE_single_layer, AE_multiple_layers
+from utils import load_dataset, save_model, load_model
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # only ffhq
 gdrive_urls = {
@@ -58,12 +60,7 @@ def load_networks(path_or_gdrive_path):
     return G, D, Gs
 
 
-def generate_images_in_w_space(dlatents, truncation_psi):
-    Gs_kwargs = dnnlib.EasyDict()
-    Gs_kwargs.output_transform = dict(func=tflib.convert_images_to_uint8, nchw_to_nhwc=True)
-    Gs_kwargs.randomize_noise = False
-    Gs_kwargs.truncation_psi = truncation_psi
-
+def generate_images_in_w_space(dlatents):
     imgs = []
     for row, dlatent in enumerate(dlatents):
         row_images = Gs.components.synthesis.run(dlatent, **Gs_kwargs)
@@ -81,27 +78,22 @@ def iterate_batches(all_w, batch_size):
 network_pkl = "gdrive:networks/stylegan2-ffhq-config-f.pkl"
 G, D, Gs = load_networks(network_pkl)
 
-Gs_syn_kwargs = dnnlib.EasyDict()
-
-Gs_syn_kwargs.output_transform = dict(
-    func=tflib.convert_images_to_uint8, nchw_to_nhwc=True
-)
-Gs_syn_kwargs.randomize_noise = False
-Gs_syn_kwargs.minibatch_size = 1
-
-noise_vars = [var for name, var in Gs.components.synthesis.vars.items() if name.startswith('noise')]
+Gs_kwargs = dnnlib.EasyDict()
+Gs_kwargs.minibatch_size = 1
+Gs_kwargs.output_transform = dict(func=tflib.convert_images_to_uint8, nchw_to_nhwc=True)
+Gs_kwargs.randomize_noise = False
 
 all_w, all_a = load_dataset(keep=False, values=[0] * 17)
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # AE Model
-model = AE_single_layer(input_shape=512, hidden_dim=100).to(device)
+model = AE_multiple_layers(input_shape=512, hidden_dim=512).to(device)
 criterion = torch.nn.MSELoss()
-optimizer = optim.Adam(model.parameters(), lr=1e-2)
+# criterion = torch.nn.BCELoss()
+optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
 start_epoch = 0
-end_epoch = 10
+end_epoch = 100
 batch_size = 32
 
 for epoch in range(start_epoch, end_epoch):
@@ -113,10 +105,10 @@ for epoch in range(start_epoch, end_epoch):
         w = w.to(device)
         optimizer.zero_grad()
 
-        input_images = generate_images_in_w_space(w.cpu(), 1.0)
+        input_images = generate_images_in_w_space(w.cpu())
         encoded, decoded = model(w)
 
-        output_images = generate_images_in_w_space(encoded.cpu().detach().numpy(), 1.0)
+        output_images = generate_images_in_w_space(encoded.cpu().detach().numpy())
         loss = criterion(torch.FloatTensor(input_images), torch.FloatTensor(output_images))
         loss = torch.autograd.Variable(loss, requires_grad=True)
 
@@ -125,10 +117,12 @@ for epoch in range(start_epoch, end_epoch):
 
         running_loss += loss.item()
         count_batches += 1
-        if (count_batches + 1) % 100 == 0:
+        if (count_batches + 1) % 5 == 0:
             now = datetime.now()
             dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
             print(
                 f"{dt_string} | Epoch {epoch + 1} | Batch {count_batches} | Loss {running_loss / count_batches:.4f}"
             )
-    save_model(f"ae_model/model_e{epoch + 1}.pch", model, optimizer)
+    print(f"{dt_string} | Epoch - end: {epoch + 1} | {running_loss / count_batches:.4f}")
+    if (epoch + 1) % 10 == 0:
+      save_model(f"ae_model2/model_e{epoch + 1}.pch", model, optimizer)
