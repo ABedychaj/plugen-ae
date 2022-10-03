@@ -222,7 +222,7 @@ def dataset_interpolation(epoch, s_only=False):
     b_size = 10
     blank = torch.zeros(b_size + 2, 3, image_size, image_size, device=device)
 
-    rec, z, _, _, _ = model.forward(data.cuda())
+    rec, z, _, _, _ = model.forward(data.to(device))
 
     with torch.no_grad():
         pic = []
@@ -238,7 +238,7 @@ def dataset_interpolation(epoch, s_only=False):
                     to_decode += [torch.cat([l_part, s_part], 0)]  # TODO: check that
                 else:
                     to_decode += [interp_from + alpha * (interp_to - interp_from)]
-            to_decode = torch.stack(to_decode).cuda()
+            to_decode = torch.stack(to_decode).to(device)
             inversed_flow = model.flow.inv_flow(to_decode)
             decoded = model.decoder(inversed_flow)
             decoded = (decoded + 1) / 2

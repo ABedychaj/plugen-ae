@@ -7,6 +7,9 @@ import numpy as np
 
 from M_Flow_NICE import FlowModel
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
 class Encoder(nn.Module):
     # only for square pics with width or height is n^(2x)
     def __init__(self, image_size, nf, hidden_size=None, nc=3):
@@ -212,13 +215,13 @@ class FlowVae(nn.Module):
         zl = z[:, :self.label_size]
         s = z[:, self.label_size:]
 
-        sigma_pos = (sigma * torch.sqrt(2 * var_ratio)).cuda()
-        sigma_neg = (sigma * torch.sqrt(2 * (1 - var_ratio))).cuda()
+        sigma_pos = (sigma * torch.sqrt(2 * var_ratio)).to(device)
+        sigma_neg = (sigma * torch.sqrt(2 * (1 - var_ratio))).to(device)
         # Mixture for class variables
         first_gaussian = D.Normal(
-            torch.tensor([1.], device='cuda'), sigma_pos)
+            torch.tensor([1.]).to(device), sigma_pos)
         second_gaussian = D.Normal(
-            torch.tensor([-1.], device='cuda'), sigma_neg)
+            torch.tensor([-1.]).to(device), sigma_neg)
 
         first_log_prob = first_gaussian.log_prob(zl)
         second_log_prob = second_gaussian.log_prob(zl)
@@ -237,8 +240,8 @@ class FlowVae(nn.Module):
 
         # One Gaussian for the rest
         standard_normal = D.Normal(
-            torch.tensor([0.], device='cuda'),
-            torch.tensor([1.], device='cuda'))
+            torch.tensor([0.]).to(device),
+            torch.tensor([1.]).to(device))
         loglike_s = standard_normal.log_prob(s)
 
         loglike = (loglike_s.sum(-1) + loglike_zl.sum(-1)) + logdet

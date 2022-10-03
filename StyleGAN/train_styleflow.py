@@ -30,13 +30,13 @@ model = cnf(512, "512-512-512-512-512", 8, 1).to(device)
 optimizer = optim.Adam(model.parameters(), lr=lr)
 
 # Loading
-start_epoch = 6
+start_epoch = 0
 if start_epoch > 0:
     model, optimizer = load_model(
         f"{model_dir}/{model_name}_e{start_epoch}.pch", model, optimizer
     )
 
-N_dist = Normal(torch.tensor([0.0], device="cuda"), torch.tensor([1.0], device="cuda"))
+N_dist = Normal(torch.tensor([0.0]).to(device), torch.tensor([1.0]).to(device))
 zero_padding = torch.zeros(1, 1, 1).to(device)
 
 for epoch in range(start_epoch, num_epochs):

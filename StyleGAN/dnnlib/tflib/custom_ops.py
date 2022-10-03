@@ -25,10 +25,7 @@ do_not_hash_included_headers = False  # Speed up compilation by assuming that he
 verbose = True  # Print status messages to stdout.
 
 compiler_bindir_search_path = [
-    'C:/Program Files (x86)/Microsoft Visual Studio/2017/Community/VC/Tools/MSVC/14.14.26428/bin/Hostx64/x64',
-    'C:/Program Files (x86)/Microsoft Visual Studio/2017/Community/VC/Tools/MSVC/14.16.27023/bin/Hostx64/x64',
-    'C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/VC/Tools/MSVC/14.23.28105/bin/Hostx64/x64',
-    'C:/Program Files (x86)/Microsoft Visual Studio 14.0/vc/bin',
+    'C:/Program Files (x86)/Microsoft Visual Studio/2017/Community/VC/Tools/MSVC/14.16.27023/bin/HostX64/x64',
 ]
 
 
@@ -53,13 +50,13 @@ def _find_compiler_bindir():
 def _get_compute_cap(device):
     caps_str = device.physical_device_desc
     m = re.search('compute capability: (\\d+).(\\d+)', caps_str)
-    major = 7 #m.group(1)
-    minor = 5 #m.group(2)
+    major = m.group(1)
+    minor = m.group(2)
     return (major, minor)
 
 
 def _get_cuda_gpu_arch_string():
-    gpus = [x for x in device_lib.list_local_devices() if "GPU" in x.device_type]
+    gpus = [x for x in device_lib.list_local_devices() if x.device_type == 'GPU']
     if len(gpus) == 0:
         raise RuntimeError('No GPU devices found')
     (major, minor) = _get_compute_cap(gpus[0])
@@ -76,14 +73,13 @@ def _run_cmd(cmd):
 
 
 def _prepare_nvcc_cli(opts):
-    cmd = 'nvcc --std=c++11 -DNDEBUG ' + opts.strip()
-    #cmd = 'nvcc ' + opts.strip()
+    cmd = 'nvcc ' + opts.strip()
     cmd += ' --disable-warnings'
     cmd += ' --include-path "%s"' % tf.sysconfig.get_include()
     cmd += ' --include-path "%s"' % os.path.join(tf.sysconfig.get_include(), 'external', 'protobuf_archive', 'src')
     cmd += ' --include-path "%s"' % os.path.join(tf.sysconfig.get_include(), 'external', 'com_google_absl')
     cmd += ' --include-path "%s"' % os.path.join(tf.sysconfig.get_include(), 'external', 'eigen_archive')
-    
+
     compiler_bindir = _find_compiler_bindir()
     if compiler_bindir is None:
         # Require that _find_compiler_bindir succeeds on Windows.  Allow

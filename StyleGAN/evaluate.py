@@ -3,12 +3,15 @@ import numpy as np
 import torch
 import torchvision.transforms as transforms
 import torchvision.utils as vutils
-import tensorflow as tf
+
 import matplotlib.pyplot as plt
 from pretrained_networks import load_networks
 from module.flow import cnf
 from NICE import NiceFlow
-from utils import iterate_batches, load_dataset, make_dir, save_img
+from utils import iterate_batches, load_dataset, make_dir
+
+import dnnlib
+import dnnlib.tflib as tflib
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--styleflow", action="store_true")
@@ -29,7 +32,7 @@ steps = 10
 abso = 2
 features = 8
 epoch = args.epoch
-experiments = [(i, -abso, abso) for i in range(9,17)]
+experiments = [(i, -abso, abso) for i in range(9, 17)]
 test_set = True
 
 if styleflow:
@@ -59,12 +62,8 @@ else:
 make_dir(output_dir)
 prior.eval()
 
-
-import dnnlib
-import dnnlib.tflib as tflib
-
 network_pkl = "gdrive:networks/stylegan2-ffhq-config-f.pkl"
-_, _, Gs = load_networks(network_pkl)
+G, D, Gs = load_networks(network_pkl)
 Gs_syn_kwargs = dnnlib.EasyDict()
 Gs_syn_kwargs.output_transform = dict(
     func=tflib.convert_images_to_uint8, nchw_to_nhwc=True
@@ -73,7 +72,9 @@ Gs_syn_kwargs.randomize_noise = False
 Gs_syn_kwargs.minibatch_size = 1
 
 all_w, all_a = load_dataset(keep=False, values=[0] * 17)
-#all_w, all_a = all_w[500:], all_a[500:]
+
+
+# all_w, all_a = all_w[500:], all_a[500:]
 
 def eval_single_change(w, a, change, features, styleflow):
     transformation = transforms.Compose(
@@ -81,10 +82,13 @@ def eval_single_change(w, a, change, features, styleflow):
     )
     if isinstance(change, tuple):
         attr, val = change
-    else: attr = None
+    else:
+        attr = None
 
-    if attr is None:  curr_output_dir = f"{output_dir}/original"
-    else: curr_output_dir = f"{output_dir}/{attr:02}_{val}"
+    if attr is None:
+        curr_output_dir = f"{output_dir}/original"
+    else:
+        curr_output_dir = f"{output_dir}/{attr:02}_{val}"
     make_dir(curr_output_dir)
     batch_size = min(10, w.shape[0])
     assert w.shape[0] % batch_size == 0
@@ -99,7 +103,7 @@ def eval_single_change(w, a, change, features, styleflow):
     zero_padding = torch.zeros(batch_size, 18, 1).to(device)
     for i in range(0, len(w), batch_size):
         print(f"{i}/{len(w)}")
-        curr_w, curr_a = w[i : i + batch_size].to(device), a[i : i + batch_size].to(
+        curr_w, curr_a = w[i: i + batch_size].to(device), a[i: i + batch_size].to(
             device
         )
         new_a = curr_a.clone()
@@ -112,7 +116,8 @@ def eval_single_change(w, a, change, features, styleflow):
         )
         if args.nice:
             z = prior(curr_w)[0]
-        else: z = prior(curr_w, cond, zero_padding)[0]
+        else:
+            z = prior(curr_w, cond, zero_padding)[0]
         cond = (
             torch.zeros(batch_size, 1, 1, 1).to(device)
             if not styleflow
@@ -120,22 +125,23 @@ def eval_single_change(w, a, change, features, styleflow):
         )
         if not styleflow and (attr is not None):
             for j in range(18):
-                z[:, j, 0:features] = new_a[:, 9 : 9 + features, 0]
+                z[:, j, 0:features] = new_a[:, 9: 9 + features, 0]
         if args.nice:
-            curr_w = prior.inv_flow(z) 
-        else: curr_w = prior(z, cond, zero_padding, True)[0]
+            curr_w = prior.inv_flow(z)
+        else:
+            curr_w = prior(z, cond, zero_padding, True)[0]
         imgs = Gs.components.synthesis.run(
             curr_w.cpu().detach().numpy(), **Gs_syn_kwargs
         )
         for j in range(imgs.shape[0]):
             vutils.save_image(
-                transformation(imgs[j]), f"{curr_output_dir}/{i+j:04}.png"
+                transformation(imgs[j]), f"{curr_output_dir}/{i + j:04}.png"
             )
 
 
 def eval_attribute_change(w, a, change, steps, features, styleflow):
     transform_resize = transforms.Compose(
-        [transforms.ToPILImage(), transforms.Resize((256,256)), transforms.ToTensor()]
+        [transforms.ToPILImage(), transforms.Resize((256, 256)), transforms.ToTensor()]
     )
 
     a_source = a.clone()
@@ -168,7 +174,8 @@ def eval_attribute_change(w, a, change, steps, features, styleflow):
     cond = torch.zeros(1, 1, 1, 1).to(device) if not styleflow else a[:, 9:]
     if args.nice:
         z = prior(w)[0]
-    else: z = prior(w, cond, zero_padding)[0]
+    else:
+        z = prior(w, cond, zero_padding)[0]
     z_first = z
     for step in range(steps):
         a = torch.lerp(a_source, a_target, step / (steps - 1))
@@ -178,16 +185,18 @@ def eval_attribute_change(w, a, change, steps, features, styleflow):
             cond = a[:, 9:]
         else:
             cond = torch.zeros(1, 1, 1, 1).to(device)
-            z[:, :, 0:features] = a[:, 9 : 9 + features]
+            z[:, :, 0:features] = a[:, 9: 9 + features]
         if args.nice:
             w = prior.inv_flow(z)
-        else: w = prior(z, cond, zero_padding, True)[0]
+        else:
+            w = prior(z, cond, zero_padding, True)[0]
         img = Gs.components.synthesis.run(w.cpu().detach().numpy(), **Gs_syn_kwargs)[0]
         imgs += [img]
         ws += [w.clone()]
         if args.nice:
             z_current = prior(w)[0]
-        else: z_current = prior(w, cond, zero_padding)[0]
+        else:
+            z_current = prior(w, cond, zero_padding)[0]
         w = w_first
         z = z_first
     imgs = [transform_resize(img) for img in imgs]
@@ -203,9 +212,10 @@ def plot_histograms(features, values, n=500, batch_size=10):
         zero_padding = torch.zeros(1, 1, 1, device=device)
         cond = torch.zeros(w.shape[0], 1, 1, 1, device=device)
         if args.nice:
-           z = prior(w)[0]
-        else: z = prior(w, cond, zero_padding)[0]
-        new_all_a[start : start + w.shape[0]] = z[:, 0, 0:features]
+            z = prior(w)[0]
+        else:
+            z = prior(w, cond, zero_padding)[0]
+        new_all_a[start: start + w.shape[0]] = z[:, 0, 0:features]
         start += z.shape[0]
 
     titles = [
@@ -244,21 +254,21 @@ def plot_histograms(features, values, n=500, batch_size=10):
             )
         """
         plt.hist(
-                new_all_a[:, i].detach().numpy(),
-                bins=bins,
-                alpha=0.5,
-                label="flow prediction",
-                color="tab:blue",
-                density=True,
-            ) 
+            new_all_a[:, i].detach().numpy(),
+            bins=bins,
+            alpha=0.5,
+            label="flow prediction",
+            color="tab:blue",
+            density=True,
+        )
         plt.hist(
-                all_a[:, 9+i].detach().numpy(),
-                bins=bins,
-                alpha=0.5,
-                label="ground truth",
-                color="tab:green",
-                density=True,
-            )
+            all_a[:, 9 + i].detach().numpy(),
+            bins=bins,
+            alpha=0.5,
+            label="ground truth",
+            color="tab:green",
+            density=True,
+        )
         plt.title(titles[i])
         plt.legend(loc="upper right")
         plt.savefig(f"{output_dir}/feat_distribution_{i:02}.jpg")
@@ -267,8 +277,7 @@ def plot_histograms(features, values, n=500, batch_size=10):
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-
-changes = [ (9,-1),(9,1),(10,-1),(10,1),(13,-1),(13,1),(14,-1),(14,1),(16,-1),(16,1)]
+changes = [(9, -1), (9, 1), (10, -1), (10, 1), (13, -1), (13, 1), (14, -1), (14, 1), (16, -1), (16, 1)]
 N = 500
 for change in changes:
     eval_single_change(all_w[0:N, 0], all_a[0:N], change, features, styleflow)
@@ -295,7 +304,6 @@ for idx in range(num_pics):
             padding=1,
             pad_value=1,
         )
-
 
 with torch.no_grad():
     if not styleflow:
